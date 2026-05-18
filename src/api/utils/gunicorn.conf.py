@@ -1,7 +1,7 @@
 from datetime import datetime
 from hashlib import sha256
 from json import JSONDecodeError, dump, loads
-from os import cpu_count, environ, getenv, sep
+from os import environ, getenv, sep
 from os.path import join
 from pathlib import Path
 from secrets import token_hex
@@ -16,7 +16,7 @@ for deps_path in [join(sep, "usr", "share", "bunkerweb", *paths) for paths in ((
 
 from biscuit_auth import KeyPair, PublicKey, PrivateKey
 
-from common_utils import handle_docker_secrets  # type: ignore
+from common_utils import effective_cpu_count, handle_docker_secrets  # type: ignore
 from logger import getLogger, log_types  # type: ignore
 
 from app.models.api_database import APIDatabase
@@ -37,18 +37,26 @@ PID_FILE = RUN_DIR.joinpath("api.pid")
 BISCUIT_PUBLIC_KEY_HASH_FILE = BISCUIT_PUBLIC_KEY_FILE.with_suffix(".hash")  # File to store hash of Biscuit public key
 BISCUIT_PRIVATE_KEY_HASH_FILE = BISCUIT_PRIVATE_KEY_FILE.with_suffix(".hash")  # File to store hash of Biscuit private key
 
-MAX_WORKERS = int(getenv("MAX_WORKERS", max((cpu_count() or 1) - 1, 1)))
+MAX_WORKERS = int(getenv("MAX_WORKERS", max(effective_cpu_count() - 1, 1)))
 LOG_LEVEL = getenv("CUSTOM_LOG_LEVEL", getenv("LOG_LEVEL", "info"))
-LISTEN_ADDR = getenv("API_LISTEN_ADDR", getenv("LISTEN_ADDR", "0.0.0.0"))
+LISTEN_ADDR = getenv(
+    "API_LISTEN_ADDR", getenv("LISTEN_ADDR", "0.0.0.0")
+)  # nosec B104 - 0.0.0.0 is the documented containerized default; operators override via API_LISTEN_ADDR / LISTEN_ADDR.
 LISTEN_PORT = getenv("API_LISTEN_PORT", getenv("LISTEN_PORT", "8888"))
 """
 Trusted proxies / forwarded headers
 
-Default to trusting only the local machine (127.0.0.1). This assumes there is
-no load balancer or WAF in front of the API. Operators can override via
-API_FORWARDED_ALLOW_IPS or FORWARDED_ALLOW_IPS.
+Default to local/private networks for container installs so reverse proxies on
+typical Docker networks can be trusted without opening this to the world.
+Linux packages set FORWARDED_ALLOW_IPS explicitly (127.0.0.1) via service
+scripts. Operators can override via API_FORWARDED_ALLOW_IPS or
+FORWARDED_ALLOW_IPS.
 """
-FORWARDED_ALLOW_IPS = getenv("API_FORWARDED_ALLOW_IPS", getenv("FORWARDED_ALLOW_IPS", "127.0.0.1"))
+FORWARDED_ALLOW_IPS = getenv(
+    "API_FORWARDED_ALLOW_IPS",
+    getenv("FORWARDED_ALLOW_IPS", "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"),
+)
+PROXY_ALLOW_IPS = getenv("API_PROXY_ALLOW_IPS", getenv("PROXY_ALLOW_IPS", FORWARDED_ALLOW_IPS))
 
 """
 TLS/SSL support
@@ -84,24 +92,33 @@ capture_output = CAPTURE_OUTPUT
 limit_request_line = 0
 limit_request_fields = 32768
 limit_request_field_size = 0
-reuse_port = True
+reuse_port = False
 daemon = False
 chdir = join(sep, "usr", "share", "bunkerweb", "api")
 umask = 0x027
 pidfile = PID_FILE.as_posix()
-worker_tmp_dir = join(sep, "dev", "shm")
+control_socket_disable = True
+SHM_TMP_DIR = Path(sep, "dev", "shm")
+API_WORKER_TMP_DIR = Path(sep, "tmp", "bunkerweb", "api-workers")
+worker_tmp_dir = SHM_TMP_DIR.as_posix() if SHM_TMP_DIR.is_dir() else API_WORKER_TMP_DIR.as_posix()
 tmp_upload_dir = TMP_UI_DIR.as_posix()
-secure_scheme_headers = {}
+secure_scheme_headers = {
+    "X-FORWARDED-PROTOCOL": "https",
+    "X-FORWARDED-PROTO": "https",
+    "X-FORWARDED-SSL": "on",
+}
 forwarded_allow_ips = FORWARDED_ALLOW_IPS
 pythonpath = join(sep, "usr", "share", "bunkerweb", "deps", "python") + "," + join(sep, "usr", "share", "bunkerweb", "api")
-proxy_allow_ips = FORWARDED_ALLOW_IPS
+proxy_allow_ips = PROXY_ALLOW_IPS
 casefold_http_method = True
 workers = MAX_WORKERS
 bind = f"{LISTEN_ADDR}:{LISTEN_PORT}"
 worker_class = "utils.worker.ApiUvicornWorker"
 threads = int(getenv("MAX_THREADS", MAX_WORKERS * 2))
-max_requests_jitter = min(8, MAX_WORKERS)
+max_requests = int(getenv("API_MAX_REQUESTS", getenv("MAX_REQUESTS", "1000")))
+max_requests_jitter = min(50, max_requests // 10)
 graceful_timeout = 30
+http_protocols = "h3,h2,h1"
 
 DEBUG = getenv("DEBUG", False)
 
@@ -128,6 +145,8 @@ def on_starting(server):
     TMP_UI_DIR.mkdir(parents=True, exist_ok=True)
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     LIB_DIR.mkdir(parents=True, exist_ok=True)
+    if worker_tmp_dir != SHM_TMP_DIR:
+        API_WORKER_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
     # Handle Docker secrets first
     docker_secrets = handle_docker_secrets()
@@ -504,6 +523,8 @@ def on_starting(server):
         exit(1)
 
     LOGGER.info("API is ready")
+
+    DB.close()  # Close local DB connections before fork to prevent fd leaks
 
 
 def when_ready(server):

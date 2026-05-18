@@ -34,6 +34,9 @@ function buildPackage() {
     if [ "$DISTRO" = "fedora-43" ]; then
       sudo docker build -t linux-fedora-43 -f src/linux/Dockerfile-fedora-43 .
     fi
+    if [ "$DISTRO" = "fedora-44" ]; then
+      sudo docker build -t linux-fedora-44 -f src/linux/Dockerfile-fedora-44 .
+    fi
     if [ "$DISTRO" = "rhel-8" ]; then
       sudo docker build -t linux-rhel-8 -f src/linux/Dockerfile-rhel-8 .
     fi
@@ -68,6 +71,9 @@ function createContainer() {
     if [ "$DISTRO" = "fedora-43" ]; then
       sudo docker run -v /tmp/fedora-43:/data linux-fedora-43
     fi
+    if [ "$DISTRO" = "fedora-44" ]; then
+      sudo docker run -v /tmp/fedora-44:/data linux-fedora-44
+    fi
     if [ "$DISTRO" = "rhel-8" ]; then
       sudo docker run -v /tmp/rhel-8:/data linux-rhel-8
     fi
@@ -86,7 +92,7 @@ function createContainer() {
 # Retrieve $DISTRO from the user
 
 function retrieveDistro() {
-  echo "Which distro do you want to use? (ubuntu, debian-bookworm, debian-trixie, fedora-42, fedora-43, rhel-8, rhel-9, rhel-10)"
+  echo "Which distro do you want to use? (ubuntu, debian-bookworm, debian-trixie, fedora-42, fedora-43, fedora-44, rhel-8, rhel-9, rhel-10)"
   read -r DISTRO
 }
 

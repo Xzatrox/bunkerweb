@@ -8,12 +8,12 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
 
 |      名称      | 版本  | 描述                                                                     |                                                链接                                                 |
 | :------------: | :---: | :----------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------: |
-|   **ClamAV**   |  1.9  | 使用 ClamAV 杀毒引擎自动扫描上传的文件，并在检测到文件为恶意时拒绝请求。 |     [bunkerweb-plugins/clamav](https://github.com/bunkerity/bunkerweb-plugins/tree/main/clamav)     |
-|   **Coraza**   |  1.9  | 使用 Coraza WAF（ModSecurity 的替代品）检查请求。                        |     [bunkerweb-plugins/coraza](https://github.com/bunkerity/bunkerweb-plugins/tree/main/coraza)     |
-|  **Discord**   |  1.9  | 使用 Webhook 将安全通知发送到 Discord 频道。                             |    [bunkerweb-plugins/discord](https://github.com/bunkerity/bunkerweb-plugins/tree/main/discord)    |
-|   **Slack**    |  1.9  | 使用 Webhook 将安全通知发送到 Slack 频道。                               |      [bunkerweb-plugins/slack](https://github.com/bunkerity/bunkerweb-plugins/tree/main/slack)      |
-| **VirusTotal** |  1.9  | 使用 VirusTotal API 自动扫描上传的文件，并在检测到文件为恶意时拒绝请求。 | [bunkerweb-plugins/virustotal](https://github.com/bunkerity/bunkerweb-plugins/tree/main/virustotal) |
-|  **WebHook**   |  1.9  | 使用 Webhook 将安全通知发送到自定义 HTTP 端点。                          |    [bunkerweb-plugins/webhook](https://github.com/bunkerity/bunkerweb-plugins/tree/main/webhook)    |
+|   **ClamAV**   |  1.10 | 使用 ClamAV 杀毒引擎自动扫描上传的文件，并在检测到文件为恶意时拒绝请求。 |     [bunkerweb-plugins/clamav](https://github.com/bunkerity/bunkerweb-plugins/tree/main/clamav)     |
+|   **Coraza**   |  1.10 | 使用 Coraza WAF（ModSecurity 的替代品）检查请求。                        |     [bunkerweb-plugins/coraza](https://github.com/bunkerity/bunkerweb-plugins/tree/main/coraza)     |
+|  **Discord**   |  1.10 | 使用 Webhook 将安全通知发送到 Discord 频道。                             |    [bunkerweb-plugins/discord](https://github.com/bunkerity/bunkerweb-plugins/tree/main/discord)    |
+|   **Slack**    |  1.10 | 使用 Webhook 将安全通知发送到 Slack 频道。                               |      [bunkerweb-plugins/slack](https://github.com/bunkerity/bunkerweb-plugins/tree/main/slack)      |
+| **VirusTotal** |  1.10 | 使用 VirusTotal API 自动扫描上传的文件，并在检测到文件为恶意时拒绝请求。 | [bunkerweb-plugins/virustotal](https://github.com/bunkerity/bunkerweb-plugins/tree/main/virustotal) |
+|  **WebHook**   |  1.10 | 使用 Webhook 将安全通知发送到自定义 HTTP 端点。                          |    [bunkerweb-plugins/webhook](https://github.com/bunkerity/bunkerweb-plugins/tree/main/webhook)    |
 
 ## 如何使用插件
 
@@ -21,7 +21,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
 
 如果您想快速安装外部插件，可以使用 `EXTERNAL_PLUGIN_URLS` 设置。它接受一个以空格分隔的 URL 列表，每个 URL 指向一个包含一个或多个插件的压缩（zip 格式）存档。
 
-如果您想自动安装官方插件，可以使用以下值：`EXTERNAL_PLUGIN_URLS=https://github.com/bunkerity/bunkerweb-plugins/archive/refs/tags/v1.9.zip`
+如果您想自动安装官方插件，可以使用以下值：`EXTERNAL_PLUGIN_URLS=https://github.com/bunkerity/bunkerweb-plugins/archive/refs/tags/v1.10.zip`
 
 ### 手动
 
@@ -89,7 +89,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
     services:
     ...
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         volumes:
           - ./bw-data:/data
     ...
@@ -125,7 +125,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
     services:
     ...
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         volumes:
           - ./bw-data:/data
     ...
@@ -168,7 +168,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
     services:
     ...
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         volumes:
           - /shared/bw-plugins:/data/plugins
     ...
@@ -215,7 +215,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
           serviceAccountName: sa-bunkerweb
           containers:
             - name: bunkerweb-scheduler
-              image: bunkerity/bunkerweb-scheduler:1.6.7
+              image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
               imagePullPolicy: Always
               env:
                 - name: KUBERNETES_MODE
@@ -255,7 +255,7 @@ BunkerWeb 附带一个插件系统，可以轻松添加新功能。安装插件�
 
 !!! tip "现有插件"
 
-    如果文档不够，您可以查看[官方插件](https://github.com/bunkerity/bunkerweb-plugins)和[核心插件](https://github.com/bunkerity/bunkerweb/tree/v1.6.7/src/common/core)的现有源代码（已包含在 BunkerWeb 中，但从技术上讲它们是插件）。
+    如果文档不够，您可以查看[官方插件](https://github.com/bunkerity/bunkerweb-plugins)和[核心插件](https://github.com/bunkerity/bunkerweb/tree/v1.6.10-rc7/src/common/core)的现有源代码（已包含在 BunkerWeb 中，但从技术上讲它们是插件）。
 
 插件结构如下所示：
 ```
@@ -560,7 +560,7 @@ end
 
 !!! tip "更多示例"
 
-    如果您想查看可用函数的完整列表，可以查看仓库的 [lua 目录](https://github.com/bunkerity/bunkerweb/tree/v1.6.7/src/bw/lua/bunkerweb)中存在的文件。
+    如果您想查看可用函数的完整列表，可以查看仓库的 [lua 目录](https://github.com/bunkerity/bunkerweb/tree/v1.6.10-rc7/src/bw/lua/bunkerweb)中存在的文件。
 
 ### 作业
 

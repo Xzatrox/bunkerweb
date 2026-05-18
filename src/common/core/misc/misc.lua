@@ -18,7 +18,7 @@ end
 function misc:access()
 	-- Check if method is valid
 	local method = self.ctx.bw.request_method
-	if not method or not regex_match(method, "^[A-Z]+$") then
+	if not method or not regex_match(method, "^[A-Z][A-Z_-]{2,}$") then
 		return self:ret(true, "method is not valid", HTTP_BAD_REQUEST)
 	end
 	-- Check if method is allowed

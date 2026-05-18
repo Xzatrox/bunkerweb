@@ -103,7 +103,7 @@ CrowdSec 是一种现代的开源安全引擎，它基于行为分析和社区�
     services:
       bunkerweb:
         # 这是将用于在调度器中识别实例的名称
-        image: bunkerity/bunkerweb:1.6.7
+        image: bunkerity/bunkerweb:1.6.10-rc7
         ports:
           - "80:8080/tcp"
           - "443:8443/tcp"
@@ -120,7 +120,7 @@ CrowdSec 是一种现代的开源安全引擎，它基于行为分析和社区�
             syslog-address: "udp://10.20.30.254:514" # syslog 服务的 IP 地址
 
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         environment:
           <<: *bw-env
           BUNKERWEB_INSTANCES: "bunkerweb" # 确保设置正确的实例名称
@@ -154,7 +154,7 @@ CrowdSec 是一种现代的开源安全引擎，它基于行为分析和社区�
           - bw-db
 
       crowdsec:
-        image: crowdsecurity/crowdsec:v1.7.4 # 使用最新版本，但为了更好的稳定性和安全性，请始终固定版本
+        image: crowdsecurity/crowdsec:v1.7.7 # 使用最新版本，但为了更好的稳定性和安全性，请始终固定版本
         volumes:
           - cs-data:/var/lib/crowdsec/data # 持久化 CrowdSec 数据
           - bw-logs:/var/log:ro # BunkerWeb 的日志，供 CrowdSec 解析
@@ -291,7 +291,7 @@ CrowdSec 是一种现代的开源安全引擎，它基于行为分析和社区�
 
 ### 第&nbsp;2&nbsp;步 – 配置 BunkerWeb 参数
 
-应用以下环境变量（或通过调度器设置的值），让 BunkerWeb 实例能够与 CrowdSec 本地 API 通信。至少需要设置 `USE_CROWDSEC`、`CROWDSEC_API` 以及通过 `cscli bouncers add` 生成的有效密钥。
+应用以下环境变量（或通过调度器设置的值），让 BunkerWeb 实例能够与 CrowdSec 本地 API 通信。至少需要设置 `USE_CROWDSEC`、`CROWDSEC_API` 和 `CROWDSEC_API_KEY`，并使用通过 `cscli bouncers add` 生成的有效密钥。
 
 | 设置                        | 默认值                 | 上下文    | 多个 | 描述                                                                                                  |
 | --------------------------- | ---------------------- | --------- | ---- | ----------------------------------------------------------------------------------------------------- |
@@ -317,7 +317,9 @@ CrowdSec 是一种现代的开源安全引擎，它基于行为分析和社区�
 | `CROWDSEC_ALWAYS_SEND_TO_APPSEC`  | `no`          | global | 否   | **始终发送：** 设置为 `yes` 以始终将请求发送到 AppSec，即使存在 IP 级别的决策。   |
 | `CROWDSEC_APPSEC_SSL_VERIFY`      | `no`          | global | 否   | **SSL 验证：** 设置为 `yes` 以验证 AppSec 组件的 SSL 证书。                       |
 
-!!! info "关于操作模式" - **实时模式**会为每个传入的请求查询 CrowdSec API，提供实时的保护，但会增加延迟。- **流模式**会定期从 CrowdSec API 下载所有决策并将其本地缓存，从而减少延迟，但应用新决策会略有延迟。
+!!! info "关于操作模式"
+    - **实时模式**会为每个传入的请求查询 CrowdSec API，提供实时的保护，但会增加延迟。
+    - **流模式**会定期从 CrowdSec API 下载所有决策并将其本地缓存，从而减少延迟，但应用新决策会略有延迟。
 
 ### 示例配置
 

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # Generate checksum for install script
       - name: Generate checksum for install script
         run: |
@@ -24,7 +24,7 @@ jobs:
       # Get PDF doc
       - name: Get documentation
         if: inputs.VERSION != 'testing'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: BunkerWeb_documentation_v${{ inputs.VERSION }}.pdf
       # Sanitize version (replace ~ with - for valid Git tag names)
@@ -108,16 +108,18 @@ jobs:
       # Create release
       - name: Create release
         if: inputs.VERSION != 'testing'
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           body: |
             Documentation : https://docs.bunkerweb.io/${{ inputs.VERSION }}/
 
             Docker tags :
+            - All-in-one : `bunkerity/bunkerweb-all-in-one:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-all-in-one:${{ steps.sanitize.outputs.version }}`
             - BunkerWeb : `bunkerity/bunkerweb:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb:${{ steps.sanitize.outputs.version }}`
             - Scheduler : `bunkerity/bunkerweb-scheduler:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-scheduler:${{ steps.sanitize.outputs.version }}`
             - Autoconf : `bunkerity/bunkerweb-autoconf:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-autoconf:${{ steps.sanitize.outputs.version }}`
             - UI : `bunkerity/bunkerweb-ui:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-ui:${{ steps.sanitize.outputs.version }}`
+            - API : `bunkerity/bunkerweb-api:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-api:${{ steps.sanitize.outputs.version }}`
 
             Linux packages : https://packagecloud.io/app/bunkerity/bunkerweb/search?q=${{ inputs.VERSION }}&filter=all&dist=
 
@@ -135,7 +137,7 @@ jobs:
       # Create release
       - name: Create release
         if: inputs.VERSION == 'testing'
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           body: |
             **The testing version of BunkerWeb should not be used in production, please use the latest stable version instead.**
@@ -147,6 +149,8 @@ jobs:
             - Scheduler : `bunkerity/bunkerweb-scheduler:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-scheduler:${{ steps.sanitize.outputs.version }}`
             - Autoconf : `bunkerity/bunkerweb-autoconf:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-autoconf:${{ steps.sanitize.outputs.version }}`
             - UI : `bunkerity/bunkerweb-ui:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-ui:${{ steps.sanitize.outputs.version }}`
+            - API : `bunkerity/bunkerweb-api:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-api:${{ steps.sanitize.outputs.version }}`
+            - All-in-one : `bunkerity/bunkerweb-all-in-one:${{ steps.sanitize.outputs.version }}` or `ghcr.io/bunkerity/bunkerweb-all-in-one:${{ steps.sanitize.outputs.version }}`
 
             Linux packages : https://packagecloud.io/app/bunkerity/bunkerweb/search?q=${{ inputs.VERSION }}&filter=all&dist=
 

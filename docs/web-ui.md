@@ -47,7 +47,7 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
 
     services:
       bunkerweb:
-        image: bunkerity/bunkerweb:1.6.7
+        image: bunkerity/bunkerweb:1.6.10-rc7
         ports:
           - "80:8080/tcp"
           - "443:8443/tcp"
@@ -62,7 +62,7 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
           - bw-services
 
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         environment:
           <<: *service-env
           BUNKERWEB_INSTANCES: "bunkerweb" # Make sure to set the correct instance name
@@ -86,7 +86,7 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
           - bw-db
 
       bw-ui:
-        image: bunkerity/bunkerweb-ui:1.6.7
+        image: bunkerity/bunkerweb-ui:1.6.10-rc7
         environment:
           <<: *service-env
           ADMIN_USERNAME: "admin"
@@ -169,7 +169,7 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
 ### Linux vs Docker specifics
 
 - Bind defaults: Docker images listen on `0.0.0.0:7000`; Linux packages bind to `127.0.0.1:7000`. Override with `UI_LISTEN_ADDR` / `UI_LISTEN_PORT`.
-- Proxy headers: `UI_FORWARDED_ALLOW_IPS` defaults to `*`; on Linux installations set it to your reverse proxy IPs for tighter defaults.
+- Proxy headers: `UI_FORWARDED_ALLOW_IPS` defaults to `127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16`; `UI_PROXY_ALLOW_IPS` defaults to the value of `FORWARDED_ALLOW_IPS`. On Linux installations set them to your reverse proxy IPs for tighter defaults.
 - Secrets and state: `/var/lib/bunkerweb` stores `FLASK_SECRET`, Biscuit keys, and TOTP material. Mount it in Docker; on Linux it is created and managed by the package scripts.
 - Logs: `/var/log/bunkerweb` must be readable by UID/GID 101 (or the mapped UID in rootless Docker). Packages create the path; containers need a volume with correct ownership.
 - Wizard behavior: easy-install on Linux starts the UI and wizard automatically; Docker users reach the wizard via the reverse-proxied URL unless they preseed env vars.
@@ -186,7 +186,7 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
     ```
 
     Recovery codes are shown once in the UI; losing the encryption keys wipes stored TOTP secrets.
-- Sessions: default lifetime is 12h (`SESSION_LIFETIME_HOURS`). Sessions are pinned to IP and User-Agent; `CHECK_PRIVATE_IP=no` relaxes the IP check for private ranges only. `ALWAYS_REMEMBER=yes` always sets persistent cookies.
+- Sessions: default idling lifetime is 12h (`SESSION_LIFETIME_HOURS`), refreshed on every request. A hard absolute cap is enforced by `SESSION_ABSOLUTE_HOURS` (default `168` = 7 days) — past it, users are logged out regardless of activity. Optional session ID rotation (`SESSION_ROLLING_HOURS`, default `0` = disabled) regenerates the session ID at that interval. Sessions are pinned to IP and User-Agent; `CHECK_PRIVATE_IP=no` relaxes the IP check for private ranges only. `ALWAYS_REMEMBER=yes` always sets persistent cookies.
 - Remember to set `PROXY_NUMBERS` if multiple proxies append `X-Forwarded-*` headers.
 
 ## Configuration sources and precedence
@@ -206,15 +206,16 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
 
 ### Listener & TLS
 
-| Setting                             | Description                                | Accepted values                 | Default                                    |
-| ----------------------------------- | ------------------------------------------ | ------------------------------- | ------------------------------------------ |
-| `UI_LISTEN_ADDR`                    | Bind address for the UI                    | IP or hostname                  | `0.0.0.0` (Docker) / `127.0.0.1` (package) |
-| `UI_LISTEN_PORT`                    | Bind port for the UI                       | Integer                         | `7000`                                     |
-| `LISTEN_ADDR`, `LISTEN_PORT`        | Fallbacks when UI-specific vars are unset  | IP/hostname, integer            | `0.0.0.0`, `7000`                          |
-| `UI_SSL_ENABLED`                    | Enable TLS in the UI container             | `yes` or `no`                   | `no`                                       |
-| `UI_SSL_CERTFILE`, `UI_SSL_KEYFILE` | PEM cert and key paths when TLS is enabled | File paths                      | unset                                      |
-| `UI_SSL_CA_CERTS`                   | Optional CA/chain                          | File path                       | unset                                      |
-| `UI_FORWARDED_ALLOW_IPS`            | Trusted proxy IPs for `X-Forwarded-*`      | Comma/space-separated IPs/CIDRs | `*`                                        |
+| Setting                             | Description                                | Accepted values                 | Default                                               |
+| ----------------------------------- | ------------------------------------------ | ------------------------------- | ----------------------------------------------------- |
+| `UI_LISTEN_ADDR`                    | Bind address for the UI                    | IP or hostname                  | `0.0.0.0` (Docker) / `127.0.0.1` (package)            |
+| `UI_LISTEN_PORT`                    | Bind port for the UI                       | Integer                         | `7000`                                                |
+| `LISTEN_ADDR`, `LISTEN_PORT`        | Fallbacks when UI-specific vars are unset  | IP/hostname, integer            | `0.0.0.0`, `7000`                                     |
+| `UI_SSL_ENABLED`                    | Enable TLS in the UI container             | `yes` or `no`                   | `no`                                                  |
+| `UI_SSL_CERTFILE`, `UI_SSL_KEYFILE` | PEM cert and key paths when TLS is enabled | File paths                      | unset                                                 |
+| `UI_SSL_CA_CERTS`                   | Optional CA/chain                          | File path                       | unset                                                 |
+| `UI_FORWARDED_ALLOW_IPS`            | Trusted proxy IPs for `X-Forwarded-*`      | Comma/space-separated IPs/CIDRs | `127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
+| `UI_PROXY_ALLOW_IPS`                | Trusted proxy IPs for PROXY protocol       | Comma/space-separated IPs/CIDRs | `FORWARDED_ALLOW_IPS`                                 |
 
 ### Auth, sessions, and cookies
 
@@ -225,7 +226,9 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
 | `FLASK_SECRET`                              | Session signing secret (persisted to `/var/lib/bunkerweb/.flask_secret`) | Hex/base64/opaque string | auto-generated            |
 | `TOTP_ENCRYPTION_KEYS` (`TOTP_SECRETS`)     | Encryption keys for TOTP secrets (space-separated or JSON map)           | Strings / JSON           | auto-generated if missing |
 | `BISCUIT_PUBLIC_KEY`, `BISCUIT_PRIVATE_KEY` | Optional Biscuit keys (hex) used to mint UI tokens                       | Hex strings              | auto-generated & stored   |
-| `SESSION_LIFETIME_HOURS`                    | Session lifetime                                                         | Number (hours)           | `12`                      |
+| `SESSION_LIFETIME_HOURS`                    | Idling session lifetime (sliding TTL, refreshed on every request)        | Number (hours)           | `12`                      |
+| `SESSION_ABSOLUTE_HOURS`                    | Absolute session cap regardless of activity (logout after this many hours since login) | Number (hours)  | `168`                     |
+| `SESSION_ROLLING_HOURS`                     | Session ID rotation interval (`0` disables rotation)                     | Number (hours)           | `0`                       |
 | `ALWAYS_REMEMBER`                           | Always enable "remember me" cookies                                      | `yes` or `no`            | `no`                      |
 | `CHECK_PRIVATE_IP`                          | Enforce IP pinning (skips change inside private ranges when `no`)        | `yes` or `no`            | `yes`                     |
 | `PROXY_NUMBERS`                             | Number of proxy hops to trust for `X-Forwarded-*`                        | Integer                  | `1`                       |
@@ -243,13 +246,16 @@ The UI expects the scheduler/(BunkerWeb) API/redis/database stack to be reachabl
 
 ### Misc runtime
 
-| Setting                         | Description                                        | Accepted values | Default                              |
-| ------------------------------- | -------------------------------------------------- | --------------- | ------------------------------------ |
-| `MAX_WORKERS`, `MAX_THREADS`    | Gunicorn workers/threads                           | Integer         | `cpu_count()-1` (min 1), `workers*2` |
-| `ENABLE_HEALTHCHECK`            | Expose `GET /healthcheck`                          | `yes` or `no`   | `no`                                 |
-| `FORWARDED_ALLOW_IPS`           | Deprecated alias for proxy allowlist               | IPs/CIDRs       | `*`                                  |
-| `DISABLE_CONFIGURATION_TESTING` | Skip test reloads when pushing config to instances | `yes` or `no`   | `no`                                 |
-| `IGNORE_REGEX_CHECK`            | Skip regex validation on settings                  | `yes` or `no`   | `no`                                 |
+| Setting                         | Description                                                           | Accepted values                          | Default                                               |
+| ------------------------------- | --------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| `MAX_WORKERS`, `MAX_THREADS`    | Gunicorn workers/threads                                              | Integer                                  | `cpu_count()-1` (min 1), `workers*2`                  |
+| `MAX_REQUESTS`                  | Requests before a Gunicorn worker is recycled (prevents memory bloat) | Integer                                  | `1000`                                                |
+| `ENABLE_HEALTHCHECK`            | Expose `GET /healthcheck`                                             | `yes` or `no`                            | `no`                                                  |
+| `FORWARDED_ALLOW_IPS`           | Alias for proxy allowlist                                             | IPs/CIDRs                                | `127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16` |
+| `PROXY_ALLOW_IPS`               | Alias for PROXY allowlist                                             | IPs/CIDRs                                | `FORWARDED_ALLOW_IPS`                                 |
+| `DISABLE_CONFIGURATION_TESTING` | Skip test reloads when pushing config to instances                    | `yes` or `no`                            | `no`                                                  |
+| `IGNORE_REGEX_CHECK`            | Skip regex validation on settings                                     | `yes` or `no`                            | `no`                                                  |
+| `MAX_CONTENT_LENGTH`            | Maximum upload size (Flask `MAX_CONTENT_LENGTH`)                      | Size with unit (`50M`, `1G`, `52428800`) | `50MB`                                                |
 
 ## Log access
 
@@ -321,3 +327,55 @@ log {
 <figure markdown>
   ![PRO upgrade](assets/img/ui-pro.png){ align=center, width="700" }
 </figure>
+
+## Translations (i18n)
+
+The Web UI is available in multiple languages thanks to community contributions. Translation strings are stored as per-locale JSON files (for example `en.json`, `fr.json`, …). Each locale has a clear provenance indicating whether it was translated manually or generated using AI, as well as its review status.
+
+### Available languages and contributors
+
+| Language              | Locale | Created by                    | Reviewed by              |
+| --------------------- | ------ | ----------------------------- | ------------------------ |
+| Arabic                | `ar`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Bengali               | `bn`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Breton                | `br`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| German                | `de`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| English               | `en`   | Manual (@TheophileDiot)       | Manual (@TheophileDiot)  |
+| Spanish               | `es`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| French                | `fr`   | Manual (@TheophileDiot)       | Manual (@TheophileDiot)  |
+| Hindi                 | `hi`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Italian               | `it`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Korean                | `ko`   | Manual (@rayshoo)             | Manual (@rayshoo)        |
+| Polish                | `pl`   | Manual (@tomkolp) via Weblate | Manual (@tomkolp)        |
+| Portuguese            | `pt`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Russian               | `ru`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Turkish               | `tr`   | Manual (@wiseweb-works)       | Manual (@wiseweb-works)  |
+| Chinese (Traditional) | `tw`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Urdu                  | `ur`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+| Chinese (Simplified)  | `zh`   | AI (Google:Gemini-2.5-pro)    | AI (Google:Gemini-3-pro) |
+
+> 💡 Some translations may be partial. Manual review is encouraged, especially for critical UI elements.
+
+### How to contribute
+
+Translation contributions follow the standard BunkerWeb contribution workflow:
+
+1. **Create or update the locale file**
+   - Copy `src/ui/app/static/locales/en.json` and rename it to your locale code (for example `de.json`).
+   - Translate **values only**; keys must remain unchanged.
+
+2. **Register the language**
+   - Add or update the language entry in `src/ui/app/lang_config.py` (locale code, display name, flag, English name).
+     This file is the single source of truth for supported languages.
+
+3. **Update documentation and provenance**
+   - `src/ui/app/static/locales/README.md` → add the new language to the provenance table (created by / reviewed by).
+   - `README.md` → ensure the project-level documentation reflects the new supported language.
+   - `docs/web-ui.md` → update the Web UI documentation (this Translations section).
+   - `docs/*/web-ui.md` → update the corresponding translated Web UI documentation with the same Translations section.
+
+4. **Open a pull request**
+   - Clearly state whether the translation was done manually or with an AI tool.
+   - For non-trivial additions (new language or major updates), consider opening an issue first to discuss the change.
+
+By contributing translations, you help make BunkerWeb accessible to a broader, international audience.

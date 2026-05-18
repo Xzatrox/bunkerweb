@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------------
 -- LuaJIT module to save/list bytecode.
 --
--- Copyright (C) 2005-2025 Mike Pall. All rights reserved.
+-- Copyright (C) 2005-2026 Mike Pall. All rights reserved.
 -- Released under the MIT license. See Copyright Notice in luajit.h
 ----------------------------------------------------------------------------
 --
@@ -96,6 +96,8 @@ local map_arch = {
   arm64 =	{ e = "le", b = 64, m = 183, p = 0xaa64, },
   arm64be =	{ e = "be", b = 64, m = 183, },
   ppc =		{ e = "be", b = 32, m = 20, },
+  ppc64 =	{ e = "be", b = 64, m = 21, },
+  ppc64le =	{ e = "le", b = 64, m = 21, },
   mips =	{ e = "be", b = 32, m = 8, f = 0x50001006, },
   mipsel =	{ e = "le", b = 32, m = 8, f = 0x50001006, },
   mips64 =	{ e = "be", b = 64, m = 8, f = 0x80000007, },

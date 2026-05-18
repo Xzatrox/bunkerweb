@@ -18,6 +18,7 @@ class LinuxTest(Test):
             "debian-trixie",
             "fedora-42",
             "fedora-43",
+            "fedora-44",
             "centos",
             "ubuntu-jammy",
         ) and not distro.startswith("rhel"):

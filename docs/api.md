@@ -41,7 +41,7 @@ Choose the flavor that matches your environment.
     services:
       bunkerweb:
         # This is the name that will be used to identify the instance in the Scheduler
-        image: bunkerity/bunkerweb:1.6.7
+        image: bunkerity/bunkerweb:1.6.10-rc7
         ports:
           - "80:8080/tcp"
           - "443:8443/tcp"
@@ -54,7 +54,7 @@ Choose the flavor that matches your environment.
           - bw-services
 
       bw-scheduler:
-        image: bunkerity/bunkerweb-scheduler:1.6.7
+        image: bunkerity/bunkerweb-scheduler:1.6.10-rc7
         environment:
           <<: *bw-env
           BUNKERWEB_INSTANCES: "bunkerweb" # Make sure to set the correct instance name
@@ -76,13 +76,13 @@ Choose the flavor that matches your environment.
           - bw-db
 
       bw-api:
-        image: bunkerity/bunkerweb-api:1.6.7
+        image: bunkerity/bunkerweb-api:1.6.10-rc7
         environment:
           <<: *bw-env
           API_USERNAME: "admin"
           API_PASSWORD: "Str0ng&P@ss!"
           # API_TOKEN: "admin-override-token" # optional
-          FORWARDED_ALLOW_IPS: "*" # Be careful with this setting; only use it if you are sure that the reverse proxy is the only way to access the API
+          FORWARDED_ALLOW_IPS: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16" # Be careful with this setting; only use it if you are sure that the reverse proxy is the only way to access the API
           API_ROOT_PATH: "/"
         networks:
           - bw-universe
@@ -108,7 +108,7 @@ Choose the flavor that matches your environment.
         command: >
           redis-server
           --maxmemory 256mb
-          --maxmemory-policy allkeys-lru
+          --maxmemory-policy volatile-lru
           --save 60 1000
           --appendonly yes
         volumes:
@@ -143,7 +143,7 @@ Choose the flavor that matches your environment.
       -e SERVICE_API=yes \
       -e API_WHITELIST_IPS="127.0.0.0/8" \
       -p 80:8080/tcp -p 443:8443/tcp -p 443:8443/udp \
-      bunkerity/bunkerweb-all-in-one:1.6.7
+      bunkerity/bunkerweb-all-in-one:1.6.10-rc7
     ```
 
 === "Linux"
@@ -266,7 +266,8 @@ Disable docs or schema by setting their URLs to `off|disabled|none|false|0`. Set
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------- |
 | `API_DOCS_URL`, `API_REDOC_URL`, `API_OPENAPI_URL` | Paths for Swagger, ReDoc, and OpenAPI schema; set to `off/disabled/none/false/0` to disable | Path or `off`             | `/docs`, `/redoc`, `/openapi.json` |
 | `API_ROOT_PATH`                                    | Mount prefix when reverse-proxying                                                          | Path (e.g. `/api`)        | empty                              |
-| `API_FORWARDED_ALLOW_IPS`                          | Trusted proxy IPs for `X-Forwarded-*`                                                       | Comma-separated IPs/CIDRs | `127.0.0.1` (package default)      |
+| `API_FORWARDED_ALLOW_IPS`                          | Trusted proxy IPs for `X-Forwarded-*`                                                       | Comma-separated IPs/CIDRs | `127.0.0.1,::1` (package default)  |
+| `API_PROXY_ALLOW_IPS`                              | Trusted proxy IPs for PROXY protocol                                                        | Comma-separated IPs/CIDRs | `FORWARDED_ALLOW_IPS`              |
 
 #### Auth, ACL, Biscuit
 
@@ -337,6 +338,7 @@ Disable docs or schema by setting their URLs to `off|disabled|none|false|0`. Set
 | `LOG_SYSLOG_ADDRESS`            | Syslog target (`udp://host:514`, `tcp://host:514`, socket)                        | Host:port, proto-prefixed host, or socket path  | unset                                                              |
 | `LOG_SYSLOG_TAG`                | Syslog tag                                                                        | String                                          | `bw-api`                                                           |
 | `MAX_WORKERS`, `MAX_THREADS`    | Gunicorn workers/threads                                                          | Integer or unset for auto                       | unset                                                              |
+| `MAX_REQUESTS`                  | Requests before a Gunicorn worker is recycled (prevents memory bloat)             | Integer                                         | `1000`                                                             |
 | `CAPTURE_OUTPUT`                | Capture Gunicorn stdout/stderr into the configured handlers                       | `yes` or `no`                                   | `no`                                                               |
 
 ## API surface (capability map)

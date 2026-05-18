@@ -21,7 +21,7 @@ ModSecurity 插件将功能强大的 [ModSecurity](https://modsecurity.org) Web 
 请按照以下步骤配置和使用 ModSecurity：
 
 1.  **启用该功能：** ModSecurity 默认启用。可以使用 `USE_MODSECURITY` 设置进行控制。
-2.  **选择 CRS 版本：** 选择一个 OWASP 核心规则集版本（v3、v4 或 nightly）。
+2.  **选择 CRS 版本：** 选择一个 OWASP 核心规则集版本（v3 或 v4）。
 3.  **添加插件：** 可选择激活 CRS 插件以增强规则覆盖范围。
 4.  **监控和调整：** 使用日志和 [Web UI](web-ui.md) 识别误报并调整设置。
 
@@ -31,7 +31,7 @@ ModSecurity 插件将功能强大的 [ModSecurity](https://modsecurity.org) Web 
 | ------------------------------------- | -------------- | --------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `USE_MODSECURITY`                     | `yes`          | multisite | 否   | **启用 ModSecurity：** 开启 ModSecurity Web 应用程序防火墙保护。                                                                            |
 | `USE_MODSECURITY_CRS`                 | `yes`          | multisite | 否   | **使用核心规则集：** 为 ModSecurity 启用 OWASP 核心规则集。                                                                                 |
-| `MODSECURITY_CRS_VERSION`             | `4`            | multisite | 否   | **CRS 版本：** 要使用的 OWASP 核心规则集版本。选项：`3`、`4` 或 `nightly`。                                                                 |
+| `MODSECURITY_CRS_VERSION`             | `4`            | multisite | 否   | **CRS 版本：** 要使用的 OWASP 核心规则集版本。选项：`3` 或 `4`。注意：`nightly` 已弃用，将默认使用 v4。                                      |
 | `MODSECURITY_SEC_RULE_ENGINE`         | `On`           | multisite | 否   | **规则引擎：** 控制是否强制执行规则。选项：`On`、`DetectionOnly` 或 `Off`。                                                                 |
 | `MODSECURITY_SEC_AUDIT_ENGINE`        | `RelevantOnly` | multisite | 否   | **审计引擎：** 控制审计日志的工作方式。选项：`On`、`Off` 或 `RelevantOnly`。                                                                |
 | `MODSECURITY_SEC_AUDIT_LOG_PARTS`     | `ABIJDEFHZ`    | multisite | 否   | **审计日志部分：** 审计日志中要包含的请求/响应的哪些部分。                                                                                  |
@@ -45,16 +45,20 @@ ModSecurity 插件将功能强大的 [ModSecurity](https://modsecurity.org) Web 
 
     CRS 团队积极维护着针对 WordPress、Nextcloud、Drupal 和 Cpanel 等流行应用程序的排除项列表，从而更容易在不影响功能的情况下进行集成。其安全优势远远超过了解决误报所需的最低配置工作量。
 
+!!! warning "大文件上传的安全建议"
+    ModSecurity 会将完整请求体缓冲到内存中，并且无法为数 GB 的上传设置上限，这可能导致 worker OOM。如果——**并且仅当**——某个反向代理 URL *专门* 用于文件上传（例如专用的 `/upload` 端点），请在该 URL 上设置 `REVERSE_PROXY_MODSECURITY_N: "no"`，以便在其 `location` 块中生成 `modsecurity off;`。不要在混合用途的 URL 上禁用它：否则该 location 提供的所有内容都会失去 WAF 覆盖。
+
+    为了在绕过 ModSecurity 后仍保护上传内容，请将其与文件扫描插件配合使用，例如 [ClamAV](https://github.com/bunkerity/bunkerweb-plugins/tree/main/clamav) 或 [VirusTotal](https://github.com/bunkerity/bunkerweb-plugins/tree/main/virustotal)——它们检查上传文件本身，而不是原始请求体。
+
 ### 可用的 CRS 版本
 
 选择一个 CRS 版本以最符合您的安全需求：
 
-- **`3`**：稳定版 [v3.3.7](https://github.com/coreruleset/coreruleset/releases/tag/v3.3.7)。
-- **`4`**：稳定版 [v4.21.0](https://github.com/coreruleset/coreruleset/releases/tag/v4.21.0) (**默认**)。
-- **`nightly`**：[每日构建版](https://github.com/coreruleset/coreruleset/releases/tag/nightly)，提供最新的规则更新。
+- **`3`**：稳定版 [v3.3.9](https://github.com/coreruleset/coreruleset/releases/tag/v3.3.9)。
+- **`4`**：稳定版 [v4.25.0](https://github.com/coreruleset/coreruleset/releases/tag/v4.25.0) (**默认**)。
 
-!!! example "每日构建版"
-    **每日构建版**包含最新的规则，提供针对新兴威胁的最新保护。然而，由于它每天更新，并且可能包含实验性或未经测试的更改，建议在将其部署到生产环境之前，首先在**预演环境**中使用每日构建版。
+!!! warning "每日构建版已弃用"
+    `MODSECURITY_CRS_VERSION` 的 `nightly` 选项已弃用，因为 OWASP 核心规则集项目已停止每日构建发布。如果您的配置仍使用 `nightly`，将改为使用 CRS v4。请将您的配置更新为 `MODSECURITY_CRS_VERSION=4`。
 
 !!! tip "偏执级别"
     OWASP 核心规则集使用“偏执级别”(PL) 来控制规则的严格性：
@@ -208,18 +212,6 @@ OWASP 核心规则集还支持一系列**插件**，旨在扩展其功能并提�
     USE_MODSECURITY_CRS: "yes"
     MODSECURITY_CRS_VERSION: "4"
     USE_MODSECURITY_GLOBAL_CRS: "yes"
-    ```
-
-=== "带自定义插件的每日构建版"
-
-    使用 CRS 的每日构建版并带有自定义插件的配置：
-
-    ```yaml
-    USE_MODSECURITY: "yes"
-    USE_MODSECURITY_CRS: "yes"
-    MODSECURITY_CRS_VERSION: "nightly"
-    USE_MODSECURITY_CRS_PLUGINS: "yes"
-    MODSECURITY_CRS_PLUGINS: "wordpress-rule-exclusions/v1.0.0 https://github.com/coreruleset/dos-protection-plugin-modsecurity/archive/refs/heads/main.zip"
     ```
 
 !!! note "人类可读的大小值"

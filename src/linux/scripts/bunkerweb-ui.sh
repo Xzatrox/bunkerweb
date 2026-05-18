@@ -9,7 +9,8 @@ PYTHON_BIN=$(get_python_bin)
 export PYTHON_BIN
 
 # Set the PYTHONPATH
-export PYTHONPATH=/usr/share/bunkerweb/deps/python:/usr/share/bunkerweb/ui
+BW_PYTHONPATH=$(get_bunkerweb_pythonpath)
+export PYTHONPATH="${BW_PYTHONPATH}:/usr/share/bunkerweb/ui"
 
 # Helper function to extract variables with fallback
 function get_env_var() {
@@ -49,7 +50,9 @@ start() {
             echo "# TOTP_ENCRYPTION_KEYS=changeme"
             echo "LISTEN_ADDR=127.0.0.1"
             echo "# LISTEN_PORT=7000"
-            echo "FORWARDED_ALLOW_IPS=127.0.0.1"
+            echo "# MAX_CONTENT_LENGTH=50MB"
+            echo "FORWARDED_ALLOW_IPS=127.0.0.1,::1"
+            echo "PROXY_ALLOW_IPS=127.0.0.1,::1"
             echo "# ENABLE_HEALTHCHECK=no"
             echo "LOG_LEVEL=info"
             echo "LOG_TYPES=file"
@@ -93,9 +96,15 @@ start() {
 
     FORWARDED_ALLOW_IPS=$(get_env_var "UI_FORWARDED_ALLOW_IPS" "")
     if [ -z "$FORWARDED_ALLOW_IPS" ]; then
-        FORWARDED_ALLOW_IPS=$(get_env_var "FORWARDED_ALLOW_IPS" "127.0.0.1")
+        FORWARDED_ALLOW_IPS=$(get_env_var "FORWARDED_ALLOW_IPS" "127.0.0.1,::1")
     fi
     export FORWARDED_ALLOW_IPS
+
+    PROXY_ALLOW_IPS=$(get_env_var "UI_PROXY_ALLOW_IPS" "")
+    if [ -z "$PROXY_ALLOW_IPS" ]; then
+        PROXY_ALLOW_IPS=$(get_env_var "PROXY_ALLOW_IPS" "$FORWARDED_ALLOW_IPS")
+    fi
+    export PROXY_ALLOW_IPS
 
     LOG_TYPES=$(get_env_var "UI_LOG_TYPES" "")
     if [ -z "$LOG_TYPES" ]; then
@@ -117,30 +126,10 @@ start() {
 
     export CAPTURE_OUTPUT="yes"
 
-    # Export all variables from variables.env
-    if [ -f /etc/bunkerweb/variables.env ]; then
-        while IFS='=' read -r key value; do
-            # Skip empty lines and comments
-            [[ -z "$key" || "$key" =~ ^# ]] && continue
-            # Trim whitespace from key
-            key=$(echo "$key" | xargs)
-            # Export the variable (value may contain spaces)
-            export "$key=$value"
-        done < /etc/bunkerweb/variables.env
-    fi
-
-    # Export all variables from ui.env
     # But we keep the above explicit exports to ensure defaults are properly set
-    if [ -f /etc/bunkerweb/ui.env ]; then
-        while IFS='=' read -r key value; do
-            # Skip empty lines and comments
-            [[ -z "$key" || "$key" =~ ^# ]] && continue
-            # Trim whitespace from key
-            key=$(echo "$key" | xargs)
-            # Export the variable (value may contain spaces)
-            export "$key=$value"
-        done < /etc/bunkerweb/ui.env
-    fi
+    export_env_file /etc/bunkerweb/variables.env
+    export_env_file /etc/bunkerweb/ui.env
+
 
     if [ -f "/var/run/bunkerweb/tmp-ui.pid" ]; then
         rm -f /var/run/bunkerweb/tmp-ui.pid
@@ -175,14 +164,22 @@ stop() {
 
     if [ -f "/var/run/bunkerweb/tmp-ui.pid" ]; then
         pid="$(cat /var/run/bunkerweb/tmp-ui.pid)"
-        kill -s TERM "$pid"
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -s TERM "$pid"
+        else
+            rm -f /var/run/bunkerweb/tmp-ui.pid
+        fi
     else
         echo "Temporary UI service is not running or the pid file doesn't exist."
     fi
 
     if [ -f "/var/run/bunkerweb/ui.pid" ]; then
         pid="$(cat /var/run/bunkerweb/ui.pid)"
-        kill -s TERM "$pid"
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -s TERM "$pid"
+        else
+            rm -f /var/run/bunkerweb/ui.pid
+        fi
     else
         echo "UI service is not running or the pid file doesn't exist."
     fi
