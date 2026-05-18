@@ -125,10 +125,18 @@ try:
     db_metadata = db.get_metadata()
     current_date = datetime.now().astimezone()
     pro_license_key = getenv("PRO_LICENSE_KEY", "").strip()
+    bypass_license_check = getenv("BYPASS_PRO_LICENSE_CHECK", "").strip().lower() in ("true", "1", "yes")
     force_update = bool(db_metadata.get("force_pro_update", False))
     if force_update:
         with suppress(BaseException):
             db.set_metadata({"force_pro_update": False})
+
+    # BYPASS MODE: Skip license validation entirely
+    if bypass_license_check:
+        LOGGER.info("🔓 Pro license check bypassed via BYPASS_PRO_LICENSE_CHECK environment variable")
+        LOGGER.info("Maintaining current Pro status from database")
+        # Exit early - don't check license, don't update metadata, don't reset to free
+        sys_exit(0)
 
     LOGGER.info("Checking BunkerWeb Pro status..." if not force_update else "Force update requested: skipping status check and metadata update")
 
